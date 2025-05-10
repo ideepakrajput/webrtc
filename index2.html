@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebRTC Video Calling App</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.8/clipboard.min.js"></script>
+    </head>
+    <body class="bg-gray-100 font-sans">
+        <div class="container max-w-6xl mx-auto px-4 py-8">
+            <h1 class="text-3xl font-bold text-center text-indigo-800 mb-8">
+                WebRTC Video Calling App
+            </h1>
+
+            <div
+                id="status"
+                class="text-center font-semibold text-gray-700 mb-6"
+            >
+                Status: Waiting for connection...
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-6 mb-8">
+                <div class="relative w-full max-w-md">
+                    <h3
+                        class="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-sm py-1 px-2 rounded z-10"
+                    >
+                        Local Video
+                    </h3>
+                    <video
+                        id="localVideo"
+                        class="w-full h-64 bg-gray-900 object-cover rounded-lg shadow-md"
+                        autoplay
+                        muted
+                        playsinline
+                    ></video>
+                </div>
+                <div class="relative w-full max-w-md">
+                    <h3
+                        class="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-sm py-1 px-2 rounded z-10"
+                    >
+                        Remote Video
+                    </h3>
+                    <video
+                        id="remoteVideo"
+                        class="w-full h-64 bg-gray-900 object-cover rounded-lg shadow-md"
+                        autoplay
+                        playsinline
+                    ></video>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-4 mb-8">
+                <button
+                    id="startButton"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition transform hover:-translate-y-1"
+                >
+                    Start Camera
+                </button>
+                <button
+                    id="createOfferButton"
+                    class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded transition transform hover:-translate-y-1 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                    disabled
+                >
+                    Create Offer
+                </button>
+                <button
+                    id="hangupButton"
+                    class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded transition transform hover:-translate-y-1 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                    disabled
+                >
+                    Hang Up
+                </button>
+            </div>
+
+            <div
+                class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8"
+            >
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                    Connection Information
+                </h3>
+
+                <div class="flex justify-center gap-4 mb-6">
+                    <button
+                        id="switchToOfferMode"
+                        class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded transition"
+                    >
+                        Create Offer Mode
+                    </button>
+                    <button
+                        id="switchToAnswerMode"
+                        class="bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded transition"
+                    >
+                        Create Answer Mode
+                    </button>
+                </div>
+
+                <div id="offerAnswer" class="transition-all duration-300">
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium text-gray-700">
+                                Offer SDP:
+                            </h4>
+                            <button
+                                id="copyOfferBtn"
+                                class="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+                                data-clipboard-target="#offerSdp"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                    />
+                                </svg>
+                                Copy
+                            </button>
+                        </div>
+                        <textarea
+                            id="offerSdp"
+                            class="w-full h-32 px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-y"
+                            placeholder="Offer SDP will appear here after creating an offer..."
+                            readonly
+                        ></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium text-gray-700">
+                                Enter Answer SDP:
+                            </h4>
+                            <button
+                                id="pasteAnswerBtn"
+                                class="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                    />
+                                </svg>
+                                Paste from clipboard
+                            </button>
+                        </div>
+                        <textarea
+                            id="answerSdp"
+                            class="w-full h-32 px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-y"
+                            placeholder="Paste the answer SDP from the other peer here..."
+                        ></textarea>
+                    </div>
+
+                    <button
+                        id="setAnswerButton"
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Set Answer
+                    </button>
+                </div>
+
+                <div
+                    id="answerOffer"
+                    class="hidden transition-all duration-300"
+                >
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium text-gray-700">
+                                Enter Offer SDP:
+                            </h4>
+                            <button
+                                id="pasteOfferBtn"
+                                class="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                    />
+                                </svg>
+                                Paste from clipboard
+                            </button>
+                        </div>
+                        <textarea
+                            id="receivedOfferSdp"
+                            class="w-full h-32 px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-y"
+                            placeholder="Paste the offer SDP from the other peer here..."
+                        ></textarea>
+                    </div>
+
+                    <button
+                        id="createAnswerButton"
+                        class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded transition mb-4"
+                    >
+                        Create Answer
+                    </button>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium text-gray-700">
+                                Answer SDP:
+                            </h4>
+                            <button
+                                id="copyAnswerBtn"
+                                class="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+                                data-clipboard-target="#generatedAnswerSdp"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                    />
+                                </svg>
+                                Copy
+                            </button>
+                        </div>
+                        <textarea
+                            id="generatedAnswerSdp"
+                            class="w-full h-32 px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-y"
+                            placeholder="Answer SDP will appear here after creating an answer..."
+                            readonly
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="max-w-2xl mx-auto bg-gray-50 rounded-lg p-6 mb-4">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                    How to Use:
+                </h3>
+                <ol class="list-decimal pl-6 space-y-2 text-gray-700">
+                    <li>
+                        Click "Start Camera" to access your camera and
+                        microphone.
+                    </li>
+                    <li>
+                        One user clicks "Create Offer" and uses the "Copy"
+                        button to copy the generated Offer SDP.
+                    </li>
+                    <li>
+                        Send this Offer SDP to the other user via a messaging
+                        app.
+                    </li>
+                    <li>
+                        The other user should select "Create Answer Mode", use
+                        the "Paste" button to paste this Offer SDP, and click
+                        "Create Answer".
+                    </li>
+                    <li>
+                        The second user then uses the "Copy" button to copy the
+                        generated Answer SDP and sends it back to the first
+                        user.
+                    </li>
+                    <li>
+                        The first user pastes the Answer SDP in the "Enter
+                        Answer SDP" field using the "Paste" button and clicks
+                        "Set Answer".
+                    </li>
+                    <li>The video call should now connect!</li>
+                    <li>Click "Hang Up" to end the call.</li>
+                </ol>
+            </div>
+
+            <div class="max-w-2xl mx-auto bg-yellow-50 rounded-lg p-6">
+                <h3 class="text-xl font-semibold text-yellow-800 mb-4">
+                    Testing on Same Computer:
+                </h3>
+                <ol class="list-decimal pl-6 space-y-2 text-yellow-700">
+                    <li>
+                        Open this page in two different browsers (e.g., Chrome
+                        and Firefox).
+                    </li>
+                    <li>
+                        Follow the steps above, using copy/paste buttons to
+                        transfer data between browsers.
+                    </li>
+                    <li>
+                        Make sure each browser allows camera access when
+                        prompted.
+                    </li>
+                    <li>
+                        If needed, use different cameras in each browser (if
+                        available) to avoid conflicts.
+                    </li>
+                    <li>
+                        Use the SDP validation tips below if you encounter
+                        connection issues.
+                    </li>
+                </ol>
+            </div>
+
+            <div class="max-w-2xl mx-auto bg-blue-50 rounded-lg p-6 mt-4">
+                <h3 class="text-xl font-semibold text-blue-800 mb-4">
+                    SDP Transfer Tips:
+                </h3>
+                <ul class="list-disc pl-6 space-y-2 text-blue-700">
+                    <li>
+                        Always use the copy/paste buttons to ensure complete SDP
+                        transfer.
+                    </li>
+                    <li>
+                        Avoid modifying the SDP text manually which could break
+                        the connection.
+                    </li>
+                    <li>
+                        If connection fails, try generating a new offer and
+                        answer.
+                    </li>
+                    <li>
+                        Check that the entire SDP text was copied properly (no
+                        truncation).
+                    </li>
+                    <li>
+                        Note that SDP contains format-specific information -
+                        ensure copying doesn't alter whitespace.
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div
+            id="copyNotification"
+            class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg transform transition-transform duration-300 translate-y-20 opacity-0"
+        >
+            Copied to clipboard!
+        </div>
+
+        <script>
+            // Variables
+            let localStream;
+            let peerConnection;
+            let isOfferMode = true;
+
+            // DOM Elements
+            const localVideo = document.getElementById("localVideo");
+            const remoteVideo = document.getElementById("remoteVideo");
+            const startButton = document.getElementById("startButton");
+            const createOfferButton =
+                document.getElementById("createOfferButton");
+            const setAnswerButton = document.getElementById("setAnswerButton");
+            const hangupButton = document.getElementById("hangupButton");
+            const offerSdp = document.getElementById("offerSdp");
+            const answerSdp = document.getElementById("answerSdp");
+            const receivedOfferSdp =
+                document.getElementById("receivedOfferSdp");
+            const createAnswerButton =
+                document.getElementById("createAnswerButton");
+            const generatedAnswerSdp =
+                document.getElementById("generatedAnswerSdp");
+            const offerAnswer = document.getElementById("offerAnswer");
+            const answerOffer = document.getElementById("answerOffer");
+            const switchToOfferMode =
+                document.getElementById("switchToOfferMode");
+            const switchToAnswerMode =
+                document.getElementById("switchToAnswerMode");
+            const statusElement = document.getElementById("status");
+            const copyOfferBtn = document.getElementById("copyOfferBtn");
+            const copyAnswerBtn = document.getElementById("copyAnswerBtn");
+            const pasteOfferBtn = document.getElementById("pasteOfferBtn");
+            const pasteAnswerBtn = document.getElementById("pasteAnswerBtn");
+            const copyNotification =
+                document.getElementById("copyNotification");
+
+            // ICE server configuration (STUN servers for NAT traversal)
+            const configuration = {
+                iceServers: [
+                    {urls: "stun:stun.l.google.com:19302"},
+                    {urls: "stun:stun1.l.google.com:19302"},
+                ],
+            };
+
+            // Initialize clipboard.js
+            const clipboardOffer = new ClipboardJS("#copyOfferBtn");
+            const clipboardAnswer = new ClipboardJS("#copyAnswerBtn");
+
+            // Clipboard event handlers
+            clipboardOffer.on("success", function (e) {
+                showNotification("Offer SDP copied to clipboard!");
+                e.clearSelection();
+            });
+
+            clipboardAnswer.on("success", function (e) {
+                showNotification("Answer SDP copied to clipboard!");
+                e.clearSelection();
+            });
+
+            // Show notification
+            function showNotification(message) {
+                copyNotification.textContent = message;
+                copyNotification.classList.remove(
+                    "translate-y-20",
+                    "opacity-0"
+                );
+                setTimeout(() => {
+                    copyNotification.classList.add(
+                        "translate-y-20",
+                        "opacity-0"
+                    );
+                }, 2000);
+            }
+
+            // Paste handlers
+            pasteOfferBtn.addEventListener("click", async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    receivedOfferSdp.value = text;
+                    showNotification("Pasted from clipboard");
+                } catch (err) {
+                    console.error("Failed to read clipboard", err);
+                    showNotification("Failed to paste: " + err.message);
+                }
+            });
+
+            pasteAnswerBtn.addEventListener("click", async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    answerSdp.value = text;
+                    showNotification("Pasted from clipboard");
+                } catch (err) {
+                    console.error("Failed to read clipboard", err);
+                    showNotification("Failed to paste: " + err.message);
+                }
+            });
+
+            // Event Listeners
+            startButton.addEventListener("click", startVideo);
+            createOfferButton.addEventListener("click", createOffer);
+            setAnswerButton.addEventListener("click", setAnswer);
+            hangupButton.addEventListener("click", hangup);
+            createAnswerButton.addEventListener("click", createAnswer);
+            switchToOfferMode.addEventListener("click", () => switchMode(true));
+            switchToAnswerMode.addEventListener("click", () =>
+                switchMode(false)
+            );
+
+            // Switch between offer and answer modes
+            function switchMode(offerMode) {
+                isOfferMode = offerMode;
+                if (offerMode) {
+                    offerAnswer.classList.remove("hidden");
+                    answerOffer.classList.add("hidden");
+                    switchToOfferMode.classList.add("bg-indigo-700");
+                    switchToOfferMode.classList.remove("bg-indigo-500");
+                    switchToAnswerMode.classList.add("bg-purple-500");
+                    switchToAnswerMode.classList.remove("bg-purple-700");
+                } else {
+                    offerAnswer.classList.add("hidden");
+                    answerOffer.classList.remove("hidden");
+                    switchToOfferMode.classList.add("bg-indigo-500");
+                    switchToOfferMode.classList.remove("bg-indigo-700");
+                    switchToAnswerMode.classList.add("bg-purple-700");
+                    switchToAnswerMode.classList.remove("bg-purple-500");
+                }
+            }
+
+            // Start local video
+            async function startVideo() {
+                try {
+                    updateStatus("Requesting camera and microphone access...");
+                    const constraints = {video: true, audio: true};
+                    localStream = await navigator.mediaDevices.getUserMedia(
+                        constraints
+                    );
+                    localVideo.srcObject = localStream;
+
+                    // Create peer connection
+                    createPeerConnection();
+
+                    // Add local stream tracks to peer connection
+                    localStream.getTracks().forEach((track) => {
+                        peerConnection.addTrack(track, localStream);
+                    });
+
+                    startButton.disabled = true;
+                    createOfferButton.disabled = false;
+                    hangupButton.disabled = false;
+                    updateStatus(
+                        "Camera and microphone are ready. You can create an offer or answer now."
+                    );
+                } catch (err) {
+                    console.error("Error accessing media devices:", err);
+                    updateStatus(
+                        "Error accessing camera or microphone. Please check permissions."
+                    );
+                }
+            }
+
+            // Create peer connection
+            function createPeerConnection() {
+                if (peerConnection) {
+                    peerConnection.close();
+                }
+
+                peerConnection = new RTCPeerConnection(configuration);
+
+                // Handle ICE candidate events
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate === null) {
+                        // ICE gathering is complete, SDP is ready
+                        console.log("ICE gathering complete");
+                        if (isOfferMode) {
+                            offerSdp.value =
+                                peerConnection.localDescription.sdp;
+                        } else {
+                            generatedAnswerSdp.value =
+                                peerConnection.localDescription.sdp;
+                        }
+                    }
+                };
+
+                // Handle connection state changes
+                peerConnection.onconnectionstatechange = () => {
+                    console.log(
+                        "Connection state:",
+                        peerConnection.connectionState
+                    );
+                    updateStatus(
+                        `Connection state: ${peerConnection.connectionState}`
+                    );
+
+                    if (peerConnection.connectionState === "connected") {
+                        updateStatus(
+                            "Call connected! You are now in a video call."
+                        );
+                    } else if (
+                        peerConnection.connectionState === "disconnected" ||
+                        peerConnection.connectionState === "failed"
+                    ) {
+                        updateStatus("Call disconnected.");
+                    }
+                };
+
+                // Handle incoming tracks (remote video/audio)
+                peerConnection.ontrack = (event) => {
+                    console.log("Received remote track");
+                    if (event.streams && event.streams[0]) {
+                        remoteVideo.srcObject = event.streams[0];
+                        updateStatus("Received remote media stream.");
+                    }
+                };
+            }
+
+            // Create an offer
+            async function createOffer() {
+                try {
+                    updateStatus("Creating offer...");
+                    // Make sure we have a fresh connection
+                    if (
+                        !peerConnection ||
+                        peerConnection.signalingState === "closed"
+                    ) {
+                        createPeerConnection();
+                        // Re-add local tracks
+                        if (localStream) {
+                            localStream.getTracks().forEach((track) => {
+                                peerConnection.addTrack(track, localStream);
+                            });
+                        }
+                    }
+
+                    const offer = await peerConnection.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: true,
+                    });
+                    await peerConnection.setLocalDescription(offer);
+                    updateStatus(
+                        "Offer created. Waiting for ICE candidates..."
+                    );
+                    setAnswerButton.disabled = false;
+                } catch (err) {
+                    console.error("Error creating offer:", err);
+                    updateStatus("Error creating offer. Please try again.");
+                }
+            }
+
+            // Set the received answer
+            async function setAnswer() {
+                try {
+                    const answer = answerSdp.value.trim();
+                    if (!answer) {
+                        alert(
+                            "Please paste the answer SDP from the other peer."
+                        );
+                        return;
+                    }
+
+                    updateStatus("Setting remote description from answer...");
+                    // Create proper RTCSessionDescription object
+                    const sdp = {
+                        type: "answer",
+                        sdp: answer,
+                    };
+
+                    await peerConnection.setRemoteDescription(
+                        new RTCSessionDescription(sdp)
+                    );
+                    updateStatus(
+                        "Remote description set. Establishing connection..."
+                    );
+                } catch (err) {
+                    console.error("Error setting answer:", err);
+                    updateStatus(
+                        "Error setting answer. Please check the SDP format and try again."
+                    );
+                }
+            }
+
+            // Create an answer to a received offer
+            async function createAnswer() {
+                try {
+                    const offer = receivedOfferSdp.value.trim();
+                    if (!offer) {
+                        alert(
+                            "Please paste the offer SDP from the other peer."
+                        );
+                        return;
+                    }
+
+                    if (!localStream) {
+                        alert("Please start your camera first.");
+                        return;
+                    }
+
+                    // Make sure we have a fresh connection
+                    if (
+                        !peerConnection ||
+                        peerConnection.signalingState === "closed"
+                    ) {
+                        createPeerConnection();
+                        // Re-add local tracks
+                        localStream.getTracks().forEach((track) => {
+                            peerConnection.addTrack(track, localStream);
+                        });
+                    }
+
+                    updateStatus("Setting remote description from offer...");
+
+                    // Create proper RTCSessionDescription object
+                    const sdp = {
+                        type: "offer",
+                        sdp: offer,
+                    };
+
+                    try {
+                        await peerConnection.setRemoteDescription(
+                            new RTCSessionDescription(sdp)
+                        );
+                    } catch (err) {
+                        console.error("Error setting remote description:", err);
+                        updateStatus(
+                            "Error processing offer. Please check the SDP format."
+                        );
+                        return;
+                    }
+
+                    updateStatus("Creating answer...");
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    updateStatus(
+                        "Answer created. Waiting for ICE candidates..."
+                    );
+                } catch (err) {
+                    console.error("Error creating answer:", err);
+                    updateStatus(
+                        "Error creating answer. Please check the offer SDP format and try again."
+                    );
+                }
+            }
+
+            // Hang up the call
+            function hangup() {
+                updateStatus("Hanging up...");
+
+                if (peerConnection) {
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+
+                if (localStream) {
+                    localStream.getTracks().forEach((track) => track.stop());
+                    localStream = null;
+                }
+
+                localVideo.srcObject = null;
+                remoteVideo.srcObject = null;
+
+                startButton.disabled = false;
+                createOfferButton.disabled = true;
+                setAnswerButton.disabled = true;
+                hangupButton.disabled = true;
+
+                offerSdp.value = "";
+                answerSdp.value = "";
+                receivedOfferSdp.value = "";
+                generatedAnswerSdp.value = "";
+
+                updateStatus("Call ended. You can start a new call.");
+            }
+
+            // Update status message
+            function updateStatus(message) {
+                statusElement.textContent = `Status: ${message}`;
+                console.log(message);
+            }
+
+            // Check for clipboard API
+            if (!navigator.clipboard) {
+                pasteOfferBtn.style.display = "none";
+                pasteAnswerBtn.style.display = "none";
+                updateStatus(
+                    "Clipboard API not available in your browser. Copy/paste functionality limited."
+                );
+            }
+
+            // Initialize the app
+            function init() {
+                updateStatus("Waiting for you to start your camera...");
+                // Disable buttons initially
+                createOfferButton.disabled = true;
+                hangupButton.disabled = true;
+                setAnswerButton.disabled = true;
+            }
+
+            // Start the application
+            init();
+        </script>
+    </body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebRTC Local Video</title>
+        <!-- Tailwind CSS via CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body
+        class="bg-gray-900 min-h-screen flex flex-col items-center justify-center p-4"
+    >
+        <div class="max-w-3xl w-full">
+            <h1 class="text-3xl font-bold text-white mb-6 text-center">
+                WebRTC Local Video Stream
+            </h1>
+
+            <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                <!-- Video element to display the local stream -->
+                <video
+                    id="localVideo"
+                    class="w-full h-auto rounded-lg"
+                    autoplay
+                    playsinline
+                    muted
+                ></video>
+
+                <div class="p-4">
+                    <div class="flex justify-between items-center">
+                        <p class="text-gray-300 text-sm">
+                            Camera Status:
+                            <span
+                                id="status"
+                                class="font-semibold text-yellow-400"
+                                >Waiting...</span
+                            >
+                        </p>
+                        <button
+                            id="startButton"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-300"
+                        >
+                            Start Camera
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-gray-800 rounded-lg p-4 text-gray-300">
+                <h2 class="text-xl font-semibold text-white mb-2">
+                    About This Demo
+                </h2>
+                <p>
+                    This page demonstrates the use of WebRTC to access your
+                    device's camera and display the video stream locally. No
+                    data is sent to any server - everything happens in your
+                    browser.
+                </p>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                const localVideo = document.getElementById("localVideo");
+                const startButton = document.getElementById("startButton");
+                const statusElement = document.getElementById("status");
+                let stream = null;
+
+                // Function to start the camera
+                async function startCamera() {
+                    try {
+                        statusElement.textContent =
+                            "Requesting camera access...";
+                        statusElement.className =
+                            "font-semibold text-yellow-400";
+
+                        // Request access to the user's camera
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: true,
+                            audio: false,
+                        });
+
+                        // Display the stream in the video element
+                        localVideo.srcObject = stream;
+
+                        statusElement.textContent = "Camera active";
+                        statusElement.className =
+                            "font-semibold text-green-400";
+                        startButton.textContent = "Stop Camera";
+                        startButton.className =
+                            "bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition duration-300";
+                    } catch (error) {
+                        console.error("Error accessing camera:", error);
+                        statusElement.textContent = "Camera access denied";
+                        statusElement.className = "font-semibold text-red-500";
+                    }
+                }
+
+                // Function to stop the camera
+                function stopCamera() {
+                    if (stream) {
+                        // Stop all tracks in the stream
+                        stream.getTracks().forEach((track) => track.stop());
+                        localVideo.srcObject = null;
+                        stream = null;
+
+                        statusElement.textContent = "Camera stopped";
+                        statusElement.className = "font-semibold text-gray-400";
+                        startButton.textContent = "Start Camera";
+                        startButton.className =
+                            "bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-300";
+                    }
+                }
+
+                // Toggle camera on button click
+                startButton.addEventListener("click", () => {
+                    if (stream) {
+                        stopCamera();
+                    } else {
+                        startCamera();
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
