@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebRTC Video Calling App - Same Browser Testing</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 font-sans">
+        <div class="container max-w-6xl mx-auto px-4 py-8">
+            <h1 class="text-3xl font-bold text-center text-indigo-800 mb-8">
+                WebRTC Video Calling App - Same Browser Testing
+            </h1>
+
+            <div
+                id="status"
+                class="text-center font-semibold text-gray-700 mb-6"
+            >
+                Status: Waiting for connection...
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-6 mb-8">
+                <div class="relative w-full max-w-md">
+                    <h3
+                        class="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-sm py-1 px-2 rounded z-10"
+                    >
+                        User 1
+                    </h3>
+                    <video
+                        id="user1Video"
+                        class="w-full h-64 bg-gray-900 object-cover rounded-lg shadow-md"
+                        autoplay
+                        muted
+                        playsinline
+                    ></video>
+                </div>
+                <div class="relative w-full max-w-md">
+                    <h3
+                        class="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-sm py-1 px-2 rounded z-10"
+                    >
+                        User 2
+                    </h3>
+                    <video
+                        id="user2Video"
+                        class="w-full h-64 bg-gray-900 object-cover rounded-lg shadow-md"
+                        autoplay
+                        muted
+                        playsinline
+                    ></video>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-4 mb-8">
+                <button
+                    id="startButton"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition transform hover:-translate-y-1"
+                >
+                    Start Cameras
+                </button>
+                <button
+                    id="connectButton"
+                    class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded transition transform hover:-translate-y-1 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                    disabled
+                >
+                    Connect Call
+                </button>
+                <button
+                    id="hangupButton"
+                    class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded transition transform hover:-translate-y-1 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none"
+                    disabled
+                >
+                    Hang Up
+                </button>
+            </div>
+
+            <div class="max-w-2xl mx-auto bg-gray-50 rounded-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                    How to Use:
+                </h3>
+                <ol class="list-decimal pl-6 space-y-2 text-gray-700">
+                    <li>
+                        Click "Start Cameras" to access camera and microphone
+                        for both users.
+                    </li>
+                    <li>
+                        Click "Connect Call" to establish a WebRTC connection
+                        between the two users.
+                    </li>
+                    <li>
+                        The connection process happens automatically - no need
+                        to copy/paste SDP information.
+                    </li>
+                    <li>
+                        Both users will see their own video feeds (muted to
+                        prevent audio feedback).
+                    </li>
+                    <li>Click "Hang Up" to end the call.</li>
+                </ol>
+            </div>
+        </div>
+
+        <script>
+            // Variables
+            let user1Stream;
+            let user2Stream;
+            let user1PeerConnection;
+            let user2PeerConnection;
+
+            // DOM Elements
+            const user1Video = document.getElementById("user1Video");
+            const user2Video = document.getElementById("user2Video");
+            const startButton = document.getElementById("startButton");
+            const connectButton = document.getElementById("connectButton");
+            const hangupButton = document.getElementById("hangupButton");
+            const statusElement = document.getElementById("status");
+
+            // ICE server configuration (STUN servers for NAT traversal)
+            const configuration = {
+                iceServers: [
+                    {urls: "stun:stun.l.google.com:19302"},
+                    {urls: "stun:stun1.l.google.com:19302"},
+                ],
+            };
+
+            // Event Listeners
+            startButton.addEventListener("click", startVideos);
+            connectButton.addEventListener("click", connectPeers);
+            hangupButton.addEventListener("click", hangup);
+
+            // Start local videos for both users
+            async function startVideos() {
+                try {
+                    updateStatus(
+                        "Requesting camera and microphone access for both users..."
+                    );
+                    const constraints = {video: true, audio: true};
+
+                    // Get media for User 1
+                    user1Stream = await navigator.mediaDevices.getUserMedia(
+                        constraints
+                    );
+                    user1Video.srcObject = user1Stream;
+
+                    // Get media for User 2 (using the same camera but as a separate stream)
+                    user2Stream = await navigator.mediaDevices.getUserMedia(
+                        constraints
+                    );
+                    user2Video.srcObject = user2Stream;
+
+                    // Create peer connections
+                    createPeerConnections();
+
+                    startButton.disabled = true;
+                    startButton.classList.add(
+                        "opacity-50",
+                        "cursor-not-allowed"
+                    );
+                    connectButton.disabled = false;
+                    connectButton.classList.remove(
+                        "opacity-50",
+                        "cursor-not-allowed"
+                    );
+                    hangupButton.disabled = false;
+                    hangupButton.classList.remove(
+                        "opacity-50",
+                        "cursor-not-allowed"
+                    );
+
+                    updateStatus(
+                        "Cameras and microphones are ready. Click 'Connect Call' to start the call."
+                    );
+                } catch (err) {
+                    console.error("Error accessing media devices:", err);
+                    updateStatus(
+                        "Error accessing camera or microphone. Please check permissions."
+                    );
+                }
+            }
+
+            // Create peer connections for both users
+            function createPeerConnections() {
+                // Create User 1's peer connection
+                user1PeerConnection = new RTCPeerConnection(configuration);
+
+                // Add User 1's local stream tracks to peer connection
+                user1Stream.getTracks().forEach((track) => {
+                    user1PeerConnection.addTrack(track, user1Stream);
+                });
+
+                // Handle ICE candidates from User 1
+                user1PeerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // Forward User 1's ICE candidates to User 2
+                        user2PeerConnection
+                            .addIceCandidate(event.candidate)
+                            .catch((e) =>
+                                console.error(
+                                    "Error adding ICE candidate to User 2:",
+                                    e
+                                )
+                            );
+                    }
+                };
+
+                // Create User 2's peer connection
+                user2PeerConnection = new RTCPeerConnection(configuration);
+
+                // Add User 2's local stream tracks to peer connection
+                user2Stream.getTracks().forEach((track) => {
+                    user2PeerConnection.addTrack(track, user2Stream);
+                });
+
+                // Handle ICE candidates from User 2
+                user2PeerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // Forward User 2's ICE candidates to User 1
+                        user1PeerConnection
+                            .addIceCandidate(event.candidate)
+                            .catch((e) =>
+                                console.error(
+                                    "Error adding ICE candidate to User 1:",
+                                    e
+                                )
+                            );
+                    }
+                };
+
+                // Connection state changes
+                user1PeerConnection.onconnectionstatechange = () => {
+                    console.log(
+                        "User 1 connection state:",
+                        user1PeerConnection.connectionState
+                    );
+                    if (user1PeerConnection.connectionState === "connected") {
+                        updateStatus(
+                            "Call connected! Both users are now in a video call."
+                        );
+                    }
+                };
+
+                user2PeerConnection.onconnectionstatechange = () => {
+                    console.log(
+                        "User 2 connection state:",
+                        user2PeerConnection.connectionState
+                    );
+                };
+            }
+
+            // Connect the peers
+            async function connectPeers() {
+                try {
+                    updateStatus("Establishing connection between peers...");
+
+                    // User 1 creates an offer
+                    const offer = await user1PeerConnection.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: true,
+                    });
+
+                    // User 1 sets local description
+                    await user1PeerConnection.setLocalDescription(offer);
+
+                    // User 2 sets remote description (User 1's offer)
+                    await user2PeerConnection.setRemoteDescription(offer);
+
+                    // User 2 creates an answer
+                    const answer = await user2PeerConnection.createAnswer();
+
+                    // User 2 sets local description
+                    await user2PeerConnection.setLocalDescription(answer);
+
+                    // User 1 sets remote description (User 2's answer)
+                    await user1PeerConnection.setRemoteDescription(answer);
+
+                    updateStatus(
+                        "Connection established. Media is now flowing between peers."
+                    );
+
+                    // Disable connect button after connection is established
+                    connectButton.disabled = true;
+                    connectButton.classList.add(
+                        "opacity-50",
+                        "cursor-not-allowed"
+                    );
+                } catch (err) {
+                    console.error("Error connecting peers:", err);
+                    updateStatus(
+                        "Error establishing connection. Please try again."
+                    );
+                }
+            }
+
+            // Hang up the call
+            function hangup() {
+                updateStatus("Hanging up...");
+
+                // Close peer connections
+                if (user1PeerConnection) {
+                    user1PeerConnection.close();
+                    user1PeerConnection = null;
+                }
+
+                if (user2PeerConnection) {
+                    user2PeerConnection.close();
+                    user2PeerConnection = null;
+                }
+
+                // Stop all tracks in the streams
+                if (user1Stream) {
+                    user1Stream.getTracks().forEach((track) => track.stop());
+                    user1Stream = null;
+                }
+
+                if (user2Stream) {
+                    user2Stream.getTracks().forEach((track) => track.stop());
+                    user2Stream = null;
+                }
+
+                // Clear video elements
+                user1Video.srcObject = null;
+                user2Video.srcObject = null;
+
+                // Reset buttons
+                startButton.disabled = false;
+                startButton.classList.remove(
+                    "opacity-50",
+                    "cursor-not-allowed"
+                );
+                connectButton.disabled = true;
+                connectButton.classList.add("opacity-50", "cursor-not-allowed");
+                hangupButton.disabled = true;
+                hangupButton.classList.add("opacity-50", "cursor-not-allowed");
+
+                updateStatus("Call ended. You can start a new call.");
+            }
+
+            // Update status message
+            function updateStatus(message) {
+                statusElement.textContent = `Status: ${message}`;
+                console.log(message);
+            }
+
+            // Initialize the app
+            function init() {
+                updateStatus("Waiting for you to start cameras...");
+                // Disable buttons initially
+                connectButton.disabled = true;
+                hangupButton.disabled = true;
+            }
+
+            // Start the application
+            init();
+        </script>
+    </body>
+</html>
